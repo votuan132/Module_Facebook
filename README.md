@@ -1,0 +1,1 @@
+Chưa lấy đc fb_dtsg nên chưa biết ghi gì hết :))
