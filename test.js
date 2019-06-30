@@ -11,9 +11,12 @@ var request = new fb();
 
 // console.log(request);
 
-request.getTokenCookie('', '')
+request.getTokenCookie('vovanhoangtuan', 'Zz0703348869!')
 .then(function(data){
 	console.log(data);
+	request.getFBdtsg().then(function(test){
+		console.log(test);
+	});
 
 })
 
