@@ -1,88 +1,25 @@
+const Facebook = require('./lib/config');
 const axios = require('axios');
-const qs = require('querystring');
 const fs = require('fs');
 const md5 = require('js-md5');
 const cheerio = require('cheerio');
 
+Facebook.prototype.login = async function(dataLogin, path = ''){
 
+	if (dataLogin.user !== undefined && dataLogin.pass !== undefined) {
 
-function Facebook(){
-	this.url;
-	this.formData;
-	this.dataRequest;
-	this.headers = {
-		cookie: {
-			'accept': '*/*',
-			'accept-encoding': 'gzip, deflate, sdch',
-			'accept-language': 'en-US,en;q=0.8,en-AU;q=0.6',
-			'cookie': '',
-			'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Safari/537.36'
-		},
-		token: {
-			'x-fb-connection-quality': 'EXCELLENT',
-			'x-fb-connection-type': 'cell.CTRadioAccessTechnologyHSDPA',
-			'user-agent': 'Dalvik/2.1.0 (Linux; U; Android 9; TA-1032 Build/PPR1.180610.011) [FBAN/Orca-Android;FBAV/218.0.0.18.113;FBPN/com.facebook.orca;FBLC/vi_VN;FBBV/157724813;FBCR/VN MOBIFONE;FBMF/HMD Global;FBBD/Nokia;FBDV/TA-1032;FBSV/9;FBCA/armeabi-v7a:armeabi;FBDM/{density=2.0,width=720,height=1280};FB_FW/1;]',
-			'content-type': 'application/x-www-form-urlencoded',
-			'x-fb-http-engine': 'Liger'
-		},
-	};
-	
-
-	this.config = {
-		url: '',
-		method: '',
-		data: '',
-		headers: '',
-		transformRequest: [
-		function(data, headers){
-			return qs.stringify(data);
+		await this.getTokenCookie(dataLogin.user, dataLogin.pass);
+		await this.getFBdtsg();
+		if (path !== '') {
+			this.saveFile(path);
 		}
-		]
-	};
-
-	
-}
-
-Facebook.prototype.getTokenCookie = async function(email, pass){
-	this.url = 'https://b-api.facebook.com/method/auth.login';
-	this.formData = {
-		api_key: '882a8490361da98702bf97a021ddc14d',
-		client_country_code: 'VN',
-		cpl: 'true',
-		credentials_type: 'device_based_login_password',
-		currently_logged_in_userid: '0',
-		email: email,
-		error_detail_type: 'button_with_disabled',
-		fb_api_caller_class: 'com.facebook.account.login.protocol.Fb4aAuthHandler',
-		fb_api_req_friendly_name: 'authenticate',
-		format: 'json',
-		generate_session_cookies: '1',
-		locale: 'vi_VN',
-		meta_inf_fbmeta: '',
-		method: 'auth.login',
-		password: pass,
-		source: 'device_based_login',		
-	};
-	this.formData.sig = this.getSig(this.formData);
-
-	var dataFb = await this.run('post', 'token');
-
-	if (dataFb.error_code) {
-		return false;
-	}else{
-		var data =  dataFb.session_cookies.map(function(item, i){
-			return item.name +'='+ item.value;
-		});
-
-		var resuft = {
-			cookie: data.join('; '),
-			access_token: dataFb.access_token
-		};
-		this.dataRequest = resuft;
-		return resuft;
+		return true;
 	}
 
+	return false;
+	
 };
+
 
 Facebook.prototype.postStatus = async function(content, privacy = 0){
 	var listPrivacy = [300645083384735, 291667064279714, 286958161406148];
@@ -103,13 +40,6 @@ Facebook.prototype.postStatus = async function(content, privacy = 0){
 	return await this.run();
 
 };
-
-
-Facebook.prototype.setData = function(dataFb){
-	this.dataRequest = dataFb;
-};
-
-
 
 
 
@@ -169,7 +99,6 @@ Facebook.prototype.commentPost = async function(idPost, content, sticker = 0){
 	return dataReturn;
 };
 
-
 Facebook.prototype.run = async function(type = 'post', typeConfig = 'cookie'){
 	this.config.url = this.url;
 
@@ -193,12 +122,63 @@ Facebook.prototype.run = async function(type = 'post', typeConfig = 'cookie'){
 	return dataReturn.data;
 };
 
+
+
+
+Facebook.prototype.getTokenCookie = async function(email, pass){
+	this.url = 'https://b-api.facebook.com/method/auth.login';
+	this.formData = {
+		api_key: '882a8490361da98702bf97a021ddc14d',
+		client_country_code: 'VN',
+		cpl: 'true',
+		credentials_type: 'device_based_login_password',
+		currently_logged_in_userid: '0',
+		email: email,
+		error_detail_type: 'button_with_disabled',
+		fb_api_caller_class: 'com.facebook.account.login.protocol.Fb4aAuthHandler',
+		fb_api_req_friendly_name: 'authenticate',
+		format: 'json',
+		generate_session_cookies: '1',
+		locale: 'vi_VN',
+		meta_inf_fbmeta: '',
+		method: 'auth.login',
+		password: pass,
+		source: 'device_based_login',		
+	};
+	this.formData.sig = this.getSig(this.formData);
+
+	var dataFb = await this.run('post', 'token');
+
+	if (dataFb.error_code) {
+		return false;
+	}else{
+		var data =  dataFb.session_cookies.map(function(item){
+			return item.name +'='+ item.value;
+		});
+
+		var resuft = {
+			cookie: data.join('; '),
+			access_token: dataFb.access_token
+		};
+		this.dataRequest = resuft;
+		return resuft;
+	}
+
+};
+
 Facebook.prototype.getFBdtsg = async function(){
 	this.url = 'https://m.facebook.com/';
 	var data = await this.run('get');
 	var $ = cheerio.load(data);
-	var found = $('.fb_dtsg').val();
+	var fb_dtsg = $('input[name="fb_dtsg"]').val();
+	this.dataRequest.fb_dtsg = fb_dtsg;
+	return fb_dtsg;
 
+};
+
+
+Facebook.prototype.setData = function(dataFb){
+	this.dataRequest = dataFb;
 };
 
 Facebook.prototype.getSig = function(formData) {
@@ -209,5 +189,23 @@ Facebook.prototype.getSig = function(formData) {
 	sig = md5(sig + '62f8ce9f74b12f84c123cc23437a4a32');
 	return sig;
 };
+
+
+Facebook.prototype.saveFile = function(path){
+	var dataSave = {
+		cookie: this.dataRequest.cookie,
+		fb_dtsg: this.dataRequest.fb_dtsg,
+		access_token: this.dataRequest.access_token
+	};
+	fs.writeFile(path, JSON.stringify(dataSave), function(){
+		console.log('Save File Success');
+	})
+};
+
+
+Facebook.prototype.readFile = function(path) {
+	// body...
+};
+
 
 module.exports = Facebook;
